@@ -5,10 +5,11 @@
         "title": "AHC Preheat",
         "description": "Pick the Advanced Heating Control automation of a room. Schedules, comfort temperature and thermostats are read from it.",
         "data": {
+          "heating_profile": "Heating type",
           "automation_entity": "AHC automation",
           "outdoor_entity": "Outdoor temperature (sensor or weather)",
           "buffer_minutes": "Safety buffer",
-          "max_lead_minutes": "Maximum preheat time"
+          "max_lead_minutes": "Maximum preheat time (empty = heating type default)"
         }
       }
     },
@@ -24,25 +25,46 @@
     "step": {
       "init": {
         "data": {
+          "heating_profile": "Heating type",
           "outdoor_entity": "Outdoor temperature (sensor or weather)",
           "buffer_minutes": "Safety buffer",
-          "max_lead_minutes": "Maximum preheat time"
+          "max_lead_minutes": "Maximum preheat time (empty = heating type default)"
         }
       }
     }
   },
   "entity": {
     "binary_sensor": {
-      "preheat": { "name": "Preheat" }
+      "preheat": {
+        "name": "Preheat"
+      }
     },
     "sensor": {
-      "preheat_start": { "name": "Preheat start" },
-      "lead_time": { "name": "Lead time" },
-      "heating_rate": { "name": "Heating rate" },
-      "measurements": { "name": "Measurements" }
+      "preheat_start": {
+        "name": "Preheat start"
+      },
+      "lead_time": {
+        "name": "Lead time"
+      },
+      "heating_rate": {
+        "name": "Heating rate"
+      },
+      "measurements": {
+        "name": "Measurements"
+      }
     },
     "button": {
-      "reset_model": { "name": "Reset learning" }
+      "reset_model": {
+        "name": "Reset learning"
+      }
+    }
+  },
+  "selector": {
+    "heating_profile": {
+      "options": {
+        "floor": "Underfloor heating",
+        "radiator": "Radiator"
+      }
     }
   }
 }

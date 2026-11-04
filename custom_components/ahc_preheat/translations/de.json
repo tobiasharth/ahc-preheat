@@ -5,10 +5,11 @@
         "title": "AHC Preheat",
         "description": "Wähle die Advanced-Heating-Control-Automation eines Raums. Zeitpläne, Komforttemperatur und Thermostate werden daraus gelesen.",
         "data": {
+          "heating_profile": "Heizungsart",
           "automation_entity": "AHC-Automation",
           "outdoor_entity": "Außentemperatur (Sensor oder Wetter)",
           "buffer_minutes": "Sicherheitspuffer",
-          "max_lead_minutes": "Maximale Vorheizzeit"
+          "max_lead_minutes": "Maximale Vorheizzeit (leer = Standard der Heizungsart)"
         }
       }
     },
@@ -24,25 +25,46 @@
     "step": {
       "init": {
         "data": {
+          "heating_profile": "Heizungsart",
           "outdoor_entity": "Außentemperatur (Sensor oder Wetter)",
           "buffer_minutes": "Sicherheitspuffer",
-          "max_lead_minutes": "Maximale Vorheizzeit"
+          "max_lead_minutes": "Maximale Vorheizzeit (leer = Standard der Heizungsart)"
         }
       }
     }
   },
   "entity": {
     "binary_sensor": {
-      "preheat": { "name": "Vorheizen" }
+      "preheat": {
+        "name": "Vorheizen"
+      }
     },
     "sensor": {
-      "preheat_start": { "name": "Vorheiz-Start" },
-      "lead_time": { "name": "Vorlaufzeit" },
-      "heating_rate": { "name": "Aufheizrate" },
-      "measurements": { "name": "Messungen" }
+      "preheat_start": {
+        "name": "Vorheiz-Start"
+      },
+      "lead_time": {
+        "name": "Vorlaufzeit"
+      },
+      "heating_rate": {
+        "name": "Aufheizrate"
+      },
+      "measurements": {
+        "name": "Messungen"
+      }
     },
     "button": {
-      "reset_model": { "name": "Gelerntes zurücksetzen" }
+      "reset_model": {
+        "name": "Gelerntes zurücksetzen"
+      }
+    }
+  },
+  "selector": {
+    "heating_profile": {
+      "options": {
+        "floor": "Fußbodenheizung",
+        "radiator": "Heizkörper"
+      }
     }
   }
 }

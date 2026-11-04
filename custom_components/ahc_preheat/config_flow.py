@@ -16,11 +16,17 @@ from .const import (
     CONF_BUFFER,
     CONF_MAX_LEAD,
     CONF_OUTDOOR,
+    CONF_PROFILE,
     DEFAULT_BUFFER,
-    DEFAULT_MAX_LEAD,
     DOMAIN,
 )
+from .model import DEFAULT_PROFILE, PROFILES
 
+PROFILE_SELECTOR = selector.SelectSelector(
+    selector.SelectSelectorConfig(
+        options=list(PROFILES), translation_key=CONF_PROFILE, mode=selector.SelectSelectorMode.LIST
+    )
+)
 OUTDOOR_SELECTOR = selector.EntitySelector(
     selector.EntitySelectorConfig(
         filter=[selector.EntityFilterSelectorConfig(domain="sensor", device_class="temperature"),
@@ -34,10 +40,13 @@ MINUTES = selector.NumberSelector(
 
 def _tuning_schema(defaults: dict[str, Any]) -> dict:
     outdoor = defaults.get(CONF_OUTDOOR)
+    max_lead = defaults.get(CONF_MAX_LEAD)
     return {
+        vol.Required(CONF_PROFILE, default=defaults.get(CONF_PROFILE, DEFAULT_PROFILE)): PROFILE_SELECTOR,
         vol.Optional(CONF_OUTDOOR, **({"default": outdoor} if outdoor else {})): OUTDOOR_SELECTOR,
         vol.Required(CONF_BUFFER, default=defaults.get(CONF_BUFFER, DEFAULT_BUFFER)): MINUTES,
-        vol.Required(CONF_MAX_LEAD, default=defaults.get(CONF_MAX_LEAD, DEFAULT_MAX_LEAD)): MINUTES,
+        # Empty = the heating type's own limit (floor 8 h, radiator 3 h).
+        vol.Optional(CONF_MAX_LEAD, **({"default": max_lead} if max_lead else {})): MINUTES,
     }
 
 
@@ -78,6 +87,6 @@ class AhcPreheatOptionsFlow(OptionsFlow):
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         if user_input is not None:
             # An emptied selector is omitted; store None so it overrides the setup value.
-            return self.async_create_entry(data={CONF_OUTDOOR: None, **user_input})
+            return self.async_create_entry(data={CONF_OUTDOOR: None, CONF_MAX_LEAD: None, **user_input})
         current = {**self.config_entry.data, **self.config_entry.options}
         return self.async_show_form(step_id="init", data_schema=vol.Schema(_tuning_schema(current)))

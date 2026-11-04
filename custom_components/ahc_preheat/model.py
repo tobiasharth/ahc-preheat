@@ -6,9 +6,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from statistics import mean, median
 
-DEFAULT_RATE_K_PER_H = 1.5
-DEFAULT_DEADTIME_MIN = 10.0
-MIN_RATE_K_PER_H = 0.2
+MIN_RATE_K_PER_H = 0.05
 MAX_RATE_K_PER_H = 6.0
 MAX_SAMPLES = 30
 MIN_SAMPLES_FOR_FIT = 4
@@ -19,7 +17,26 @@ RISE_DETECT_K = 0.2
 REACHED_TOLERANCE_K = 0.2
 MIN_RISE_K = 0.3
 MIN_MEASURE_MIN = 10.0
-MAX_RAMP_HOURS = 6.0
+
+
+@dataclass(frozen=True)
+class Profile:
+    """Starting values and limits per heating type; learning refines rate and deadtime."""
+
+    default_rate: float
+    default_deadtime_min: float
+    max_deadtime_min: float
+    max_ramp_hours: float
+    max_lead_min: float
+
+
+PROFILES: dict[str, Profile] = {
+    "floor": Profile(default_rate=0.4, default_deadtime_min=45.0, max_deadtime_min=240.0,
+                     max_ramp_hours=12.0, max_lead_min=480.0),
+    "radiator": Profile(default_rate=1.5, default_deadtime_min=10.0, max_deadtime_min=90.0,
+                        max_ramp_hours=6.0, max_lead_min=180.0),
+}
+DEFAULT_PROFILE = "floor"
 
 
 @dataclass
@@ -30,8 +47,13 @@ class Sample:
 
 @dataclass
 class RoomModel:
+    profile: Profile = PROFILES[DEFAULT_PROFILE]
     samples: list[Sample] = field(default_factory=list)
-    deadtime_min: float = DEFAULT_DEADTIME_MIN
+    deadtime_min: float | None = None
+
+    def __post_init__(self) -> None:
+        if self.deadtime_min is None:
+            self.deadtime_min = self.profile.default_deadtime_min
 
     def add_sample(self, rate: float, gap: float | None) -> None:
         clamped = min(max(rate, MIN_RATE_K_PER_H), MAX_RATE_K_PER_H)
@@ -39,13 +61,13 @@ class RoomModel:
         del self.samples[:-MAX_SAMPLES]
 
     def add_deadtime(self, minutes: float) -> None:
-        bounded = min(max(minutes, 0.0), 90.0)
+        bounded = min(max(minutes, 0.0), self.profile.max_deadtime_min)
         self.deadtime_min += DEADTIME_ALPHA * (bounded - self.deadtime_min)
 
     def rate_for(self, gap: float | None) -> float:
         """Warm-up rate in K/h; slower when it is colder outside (bigger gap)."""
         if not self.samples:
-            return DEFAULT_RATE_K_PER_H
+            return self.profile.default_rate
         fitted = self._fit()
         if fitted is None or gap is None:
             return mean(s.rate for s in self.samples)
@@ -88,11 +110,13 @@ class RoomModel:
         }
 
     @classmethod
-    def from_dict(cls, data: dict | None) -> RoomModel:
+    def from_dict(cls, data: dict | None, profile: Profile) -> RoomModel:
         if not data:
-            return cls()
+            return cls(profile=profile)
         samples = [Sample(float(r), None if g is None else float(g)) for r, g in data.get("samples", [])]
-        return cls(samples=samples, deadtime_min=float(data.get("deadtime_min", DEFAULT_DEADTIME_MIN)))
+        # Without measurements the stored deadtime is just an old default; take the profile's.
+        deadtime = data.get("deadtime_min") if samples else None
+        return cls(profile=profile, samples=samples, deadtime_min=None if deadtime is None else float(deadtime))
 
 
 def preheat_window_open(
@@ -115,6 +139,7 @@ class RampResult:
 class RampTracker:
     """Measures one heat-up ramp: setpoint raised -> room reaches it."""
 
+    profile: Profile = PROFILES[DEFAULT_PROFILE]
     start_time: datetime | None = None
     start_temp: float = 0.0
     gap: float | None = None
@@ -140,7 +165,7 @@ class RampTracker:
 
         reached = current >= target - REACHED_TOLERANCE_K
         aborted = target < current + REACHED_TOLERANCE_K and not reached
-        timed_out = now - self.start_time > timedelta(hours=MAX_RAMP_HOURS)
+        timed_out = now - self.start_time > timedelta(hours=self.profile.max_ramp_hours)
         if not (reached or aborted or timed_out):
             return None
         return self._finish(now, current)

@@ -13,6 +13,8 @@ model = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(model)
 
 T0 = datetime(2026, 11, 4, 6, 0)
+RADIATOR = model.PROFILES["radiator"]
+FLOOR = model.PROFILES["floor"]
 
 
 def run_ramp(tracker: model.RampTracker, temps: list[float], target: float, step_min: int = 5):
@@ -23,10 +25,26 @@ def run_ramp(tracker: model.RampTracker, temps: list[float], target: float, step
 
 
 class LeadTimeTest(unittest.TestCase):
-    def test_default_model_uses_default_rate_and_deadtime(self):
-        room = model.RoomModel()
+    def test_radiator_defaults(self):
+        room = model.RoomModel(profile=RADIATOR)
         lead = room.lead_minutes(current=19.0, target=22.0, outdoor=None, buffer_min=10)
         self.assertAlmostEqual(lead, 10 + 3 / 1.5 * 60 + 10)
+
+    def test_floor_defaults_are_slower(self):
+        room = model.RoomModel(profile=FLOOR)
+        lead = room.lead_minutes(current=20.0, target=21.0, outdoor=None, buffer_min=10)
+        self.assertAlmostEqual(lead, 45 + 1 / 0.4 * 60 + 10)
+
+    def test_floor_deadtime_may_exceed_radiator_limit(self):
+        room = model.RoomModel(profile=FLOOR)
+        for _ in range(20):
+            room.add_deadtime(150)
+        self.assertGreater(room.deadtime_min, RADIATOR.max_deadtime_min)
+        self.assertLessEqual(room.deadtime_min, FLOOR.max_deadtime_min)
+
+    def test_stored_default_deadtime_ignored_without_samples(self):
+        restored = model.RoomModel.from_dict({"samples": [], "deadtime_min": 10.0}, FLOOR)
+        self.assertEqual(restored.deadtime_min, FLOOR.default_deadtime_min)
 
     def test_no_lead_when_already_warm(self):
         self.assertEqual(model.RoomModel().lead_minutes(22.5, 22.0, 5.0, 10), 0.0)
@@ -55,7 +73,7 @@ class LeadTimeTest(unittest.TestCase):
         room = model.RoomModel()
         room.add_sample(2.0, 12.0)
         room.add_deadtime(20)
-        restored = model.RoomModel.from_dict(room.to_dict())
+        restored = model.RoomModel.from_dict(room.to_dict(), FLOOR)
         self.assertEqual(restored.to_dict(), room.to_dict())
 
 
@@ -93,6 +111,17 @@ class RampTrackerTest(unittest.TestCase):
         result = run_ramp(model.RampTracker(), [20.0, 20.3, 20.9], target=21.0)
         self.assertIsNotNone(result)
         self.assertIsNone(result.rate)
+
+    def test_slow_floor_ramp_is_not_cut_off_after_six_hours(self):
+        # 0.2 K/h for 8 h: radiator profile gives up at 6 h, floor profile completes the measurement
+        temps = [19.0, 19.0] + [19.0 + 0.2 * h for h in range(1, 9)]
+        floor_result = run_ramp(model.RampTracker(profile=FLOOR), temps, target=20.6, step_min=60)
+        self.assertIsNotNone(floor_result)
+        self.assertAlmostEqual(floor_result.rate, 0.2, delta=0.02)
+        radiator = model.RampTracker(profile=RADIATOR)
+        early = run_ramp(radiator, temps[:8], target=20.6, step_min=60)
+        self.assertIsNotNone(early)
+        self.assertFalse(radiator.active)
 
     def test_setpoint_lowered_aborts_without_rise(self):
         tracker = model.RampTracker()

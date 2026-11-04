@@ -9,19 +9,28 @@ damit es zum Beginn der Komfortzeit schon warm ist.
 
 - **Nächster Komfortbeginn** kommt aus dem `next_event` der AHC-Zeitpläne – ab dem ersten Tag, ohne Lernphase.
 - **Zieltemperatur** ist die AHC-Komforttemperatur (Regler oder fester Wert).
-- **Raumtemperatur** kommt aus dem AHC-Raumsensor, sonst aus den Thermostaten.
+- **Raumtemperatur** kommt aus dem AHC-Raumsensor, sonst vom **ersten** Thermostat der AHC-Automation
+  (weitere, z. B. ein Handtuchwärmer, messen am heißen Heizkörper und werden ignoriert).
 - **Vorlaufzeit** = Totzeit + (Ziel − Ist) / Aufheizrate + Puffer, gedeckelt auf die maximale Vorheizzeit.
 - **Lernen:** Jedes Mal, wenn der Sollwert am Thermostat deutlich steigt, misst die Integration, nach wie vielen
   Minuten die Temperatur zu steigen beginnt (Totzeit) und wie viele °C pro Stunde der Raum schafft.
   Mit Außentemperatur lernt sie außerdem, dass es bei Kälte länger dauert.
-  Bis zur ersten Messung gilt 1,5 °C/h und 10 min Totzeit.
+  Startwerte und Grenzen hängen von der **Heizungsart** ab:
+
+  | | Fußbodenheizung | Heizkörper |
+  |---|---|---|
+  | Start-Aufheizrate | 0,4 °C/h | 1,5 °C/h |
+  | Start-Totzeit | 45 min | 10 min |
+  | Max. Totzeit | 4 h | 90 min |
+  | Messung bricht ab nach | 12 h | 6 h |
+  | Max. Vorheizzeit (wenn nicht gesetzt) | 8 h | 3 h |
 
 ## Installation
 
 1. HACS → ⋮ → Benutzerdefinierte Repositories → URL dieses Repos, Typ **Integration**.
 2. „AHC Preheat“ herunterladen, Home Assistant neu starten.
 3. Einstellungen → Geräte & Dienste → Integration hinzufügen → **AHC Preheat**, pro Raum einmal:
-   AHC-Automation wählen, optional Außentemperatur (Sensor oder `weather.*`).
+   AHC-Automation und Heizungsart wählen, optional Außentemperatur (Sensor oder `weather.*`).
 4. In der AHC-Automation des Raums unter **Presence Detection → Presence Sensor** den neuen Sensor
    `binary_sensor.vorheizen_<raum>_vorheizen` eintragen und **Presence Reaction On/Off Time** auf 0 setzen.
    AHC heizt dann auf Komfort, wenn der Zeitplan an ist **oder** vorgeheizt wird.

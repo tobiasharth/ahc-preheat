@@ -5,7 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 import logging
-from statistics import mean
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import STATE_ON, STATE_UNAVAILABLE, STATE_UNKNOWN
@@ -21,12 +20,12 @@ from .const import (
     CONF_BUFFER,
     CONF_MAX_LEAD,
     CONF_OUTDOOR,
+    CONF_PROFILE,
     DEFAULT_BUFFER,
-    DEFAULT_MAX_LEAD,
     DOMAIN,
     STORAGE_VERSION,
 )
-from .model import RampTracker, RoomModel, preheat_window_open
+from .model import DEFAULT_PROFILE, PROFILES, RampTracker, RoomModel, preheat_window_open
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -68,14 +67,16 @@ class PreheatCoordinator(DataUpdateCoordinator[PreheatState]):
             update_interval=timedelta(minutes=1),
         )
         self.automation_id: str = entry.data[CONF_AUTOMATION]
-        self.model = RoomModel()
-        self.tracker = RampTracker()
+        profile_key = entry.options.get(CONF_PROFILE, entry.data.get(CONF_PROFILE, DEFAULT_PROFILE))
+        self.profile = PROFILES.get(profile_key, PROFILES[DEFAULT_PROFILE])
+        self.model = RoomModel(profile=self.profile)
+        self.tracker = RampTracker(profile=self.profile)
         self._store: Store[dict] = Store(hass, STORAGE_VERSION, f"{DOMAIN}.{entry.entry_id}")
         self._tracked: frozenset[str] = frozenset()
         self._unsub_states: CALLBACK_TYPE | None = None
 
     async def async_load(self) -> None:
-        self.model = RoomModel.from_dict(await self._store.async_load())
+        self.model = RoomModel.from_dict(await self._store.async_load(), self.profile)
 
     @callback
     def async_shutdown_listeners(self) -> None:
@@ -96,8 +97,8 @@ class PreheatCoordinator(DataUpdateCoordinator[PreheatState]):
     def _current(self, room: AhcRoom) -> float | None:
         if (value := _float_state(self.hass, room.temperature_sensor)) is not None:
             return value
-        readings = [v for t in room.trvs if (v := _float_state(self.hass, t, "current_temperature")) is not None]
-        return mean(readings) if readings else None
+        # First thermostat only: later ones may sit on a radiator (e.g. towel warmer) and read hot.
+        return _float_state(self.hass, room.trvs[0], "current_temperature") if room.trvs else None
 
     def _comfort_window(self, room: AhcRoom) -> tuple[bool, datetime | None]:
         # ponytail: ignores AHC's schedule selector; with several schedules the earliest start wins.
@@ -154,7 +155,7 @@ class PreheatCoordinator(DataUpdateCoordinator[PreheatState]):
             return self._empty("no room temperature", in_comfort, next_comfort, target)
         self._learn(now, room, current, outdoor)
         buffer_min = float(self._option(CONF_BUFFER, DEFAULT_BUFFER) or 0)
-        max_lead = float(self._option(CONF_MAX_LEAD, DEFAULT_MAX_LEAD) or DEFAULT_MAX_LEAD)
+        max_lead = float(self._option(CONF_MAX_LEAD, None) or self.profile.max_lead_min)
         lead = min(self.model.lead_minutes(current, target, outdoor, buffer_min), max_lead)
         gap = current - outdoor if outdoor is not None else self.model.typical_gap()
         return PreheatState(
@@ -184,7 +185,7 @@ class PreheatCoordinator(DataUpdateCoordinator[PreheatState]):
         )
 
     async def async_reset_model(self) -> None:
-        self.model = RoomModel()
-        self.tracker = RampTracker()
+        self.model = RoomModel(profile=self.profile)
+        self.tracker = RampTracker(profile=self.profile)
         await self._store.async_save(self.model.to_dict())
         await self.async_refresh()
