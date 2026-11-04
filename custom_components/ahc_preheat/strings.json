@@ -1,0 +1,48 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "AHC Preheat",
+        "description": "Pick the Advanced Heating Control automation of a room. Schedules, comfort temperature and thermostats are read from it.",
+        "data": {
+          "automation_entity": "AHC automation",
+          "outdoor_entity": "Outdoor temperature (sensor or weather)",
+          "buffer_minutes": "Safety buffer",
+          "max_lead_minutes": "Maximum preheat time"
+        }
+      }
+    },
+    "error": {
+      "not_ahc": "This automation is not based on the Advanced Heating Control blueprint.",
+      "no_schedule": "This AHC automation has no schedule."
+    },
+    "abort": {
+      "already_configured": "This room is already set up."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "outdoor_entity": "Outdoor temperature (sensor or weather)",
+          "buffer_minutes": "Safety buffer",
+          "max_lead_minutes": "Maximum preheat time"
+        }
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "preheat": { "name": "Preheat" }
+    },
+    "sensor": {
+      "preheat_start": { "name": "Preheat start" },
+      "lead_time": { "name": "Lead time" },
+      "heating_rate": { "name": "Heating rate" },
+      "measurements": { "name": "Measurements" }
+    },
+    "button": {
+      "reset_model": { "name": "Reset learning" }
+    }
+  }
+}

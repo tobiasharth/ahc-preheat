@@ -1,0 +1,48 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "AHC Preheat",
+        "description": "Wähle die Advanced-Heating-Control-Automation eines Raums. Zeitpläne, Komforttemperatur und Thermostate werden daraus gelesen.",
+        "data": {
+          "automation_entity": "AHC-Automation",
+          "outdoor_entity": "Außentemperatur (Sensor oder Wetter)",
+          "buffer_minutes": "Sicherheitspuffer",
+          "max_lead_minutes": "Maximale Vorheizzeit"
+        }
+      }
+    },
+    "error": {
+      "not_ahc": "Diese Automation basiert nicht auf der Advanced-Heating-Control-Blueprint.",
+      "no_schedule": "Diese AHC-Automation hat keinen Zeitplan."
+    },
+    "abort": {
+      "already_configured": "Dieser Raum ist bereits eingerichtet."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "outdoor_entity": "Außentemperatur (Sensor oder Wetter)",
+          "buffer_minutes": "Sicherheitspuffer",
+          "max_lead_minutes": "Maximale Vorheizzeit"
+        }
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "preheat": { "name": "Vorheizen" }
+    },
+    "sensor": {
+      "preheat_start": { "name": "Vorheiz-Start" },
+      "lead_time": { "name": "Vorlaufzeit" },
+      "heating_rate": { "name": "Aufheizrate" },
+      "measurements": { "name": "Messungen" }
+    },
+    "button": {
+      "reset_model": { "name": "Gelerntes zurücksetzen" }
+    }
+  }
+}

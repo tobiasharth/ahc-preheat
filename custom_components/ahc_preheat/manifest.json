@@ -1,0 +1,13 @@
+{
+  "domain": "ahc_preheat",
+  "name": "AHC Preheat",
+  "codeowners": ["@tobiasharth"],
+  "config_flow": true,
+  "dependencies": ["automation"],
+  "documentation": "https://github.com/tobiasharth/ahc-preheat",
+  "integration_type": "service",
+  "iot_class": "calculated",
+  "issue_tracker": "https://github.com/tobiasharth/ahc-preheat/issues",
+  "requirements": [],
+  "version": "0.1.0"
+}
